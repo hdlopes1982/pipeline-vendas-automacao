@@ -9,7 +9,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # --- CONFIGURAÇÕES ---
-# IMPORTANTE: Agora usamos o ID e o SECRET mas com um fluxo simplificado
 AZ_CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
 AZ_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET')
 AZ_TENANT_ID = os.getenv('AZURE_TENANT_ID')
@@ -20,22 +19,21 @@ EMAIL_PASS = os.getenv('EMAIL_PASS')
 def run_pipeline(n_linhas=50):
     try:
         credentials = (AZ_CLIENT_ID, AZ_CLIENT_SECRET)
-        # Usamos o protocolo básico sem prefixos 'me' ou 'users' para evitar o erro de SPO
         account = Account(credentials, tenant_id=AZ_TENANT_ID, auth_flow_type='credentials')
         
         if not account.authenticate():
             print("❌ Falha na autenticação.")
             return
 
-        # Aceder diretamente via Drive ID (o ID que tiraste do link)
+        # Aceder à Drive e depois ao Item
         storage = account.storage()
-        # Tentativa de acesso direto ao item para ignorar verificação de licença do Tenant
-        item = storage.get_drive_item(ONEDRIVE_FILE_ID)
+        drive = storage.get_default_drive()
+        item = drive.get_item(ONEDRIVE_FILE_ID)
         
         print("⏬ Descarregando ficheiro...")
         content = item.download_contents()
         
-        # --- PROCESSAMENTO (Igual ao anterior) ---
+        # --- PROCESSAMENTO ---
         df_raw = pd.read_excel(BytesIO(content), sheet_name='Sales_Raw')
         df_prods = pd.read_excel(BytesIO(content), sheet_name='Products')
         df_stores = pd.read_excel(BytesIO(content), sheet_name='Stores')
@@ -75,7 +73,7 @@ def run_pipeline(n_linhas=50):
 
         # --- EMAIL ---
         enviar_email(n_linhas, criticos, qualidade, len(df_final))
-        print("✅ Pipeline concluído!")
+        print(f"✅ Sucesso! Total na base: {len(df_final)}")
 
     except Exception as e:
         print(f"❌ Erro: {e}")
@@ -85,7 +83,7 @@ def enviar_email(n, crit, qual, total):
     msg['From'] = EMAIL_USER
     msg['To'] = EMAIL_USER
     msg['Subject'] = "🚀 Ingestão de Dados Concluída"
-    corpo = f"Sucesso!\nNovas linhas: {n}\nTotal: {total}\nErros Críticos: {crit}\nQualidade: {qual}"
+    corpo = f"Sucesso!\nNovas linhas: {n}\nTotal: {total}\nErros Críticos: {crit}\nErros Qualidade: {qual}"
     msg.attach(MIMEText(corpo, 'plain'))
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
