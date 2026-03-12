@@ -2,7 +2,7 @@ import os
 import random
 import pandas as pd
 from datetime import datetime, timedelta
-from O365 import Account, MSGraphProtocol
+from O365 import Account
 from io import BytesIO
 import smtplib
 from email.mime.text import MIMEText
@@ -13,28 +13,26 @@ AZ_CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
 AZ_CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET')
 AZ_TENANT_ID = os.getenv('AZURE_TENANT_ID')
 ONEDRIVE_FILE_ID = os.getenv('ONEDRIVE_FILE_ID')
+DRIVE_ID = os.getenv('ONEDRIVE_DRIVE_ID') # O ID que tiraste do Graph Explorer
 EMAIL_USER = os.getenv('EMAIL_USER')
 EMAIL_PASS = os.getenv('EMAIL_PASS')
 
 def run_pipeline(n_linhas=50):
     try:
-        # AQUI ESTÁ O SEGREDO: Forçamos o protocolo a usar 'users' em vez de 'me'
-        # para garantir que o Azure Application Permissions (Files.ReadWrite.All) funcione
-        protocol = MSGraphProtocol(default_resource=f'users/{EMAIL_USER}')
-        
         credentials = (AZ_CLIENT_ID, AZ_CLIENT_SECRET)
-        account = Account(credentials, tenant_id=AZ_TENANT_ID, protocol=protocol, auth_flow_type='credentials')
+        account = Account(credentials, tenant_id=AZ_TENANT_ID, auth_flow_type='credentials')
         
         if not account.authenticate():
             print("❌ Falha na autenticação.")
             return
 
+        # --- AQUI ESTÁ A MUDANÇA CRUCIAL ---
+        # Acedemos à drive diretamente pelo ID, saltando a verificação de utilizador/SPO
         storage = account.storage()
-        # Acedemos à drive do utilizador específico
-        drive = storage.get_default_drive()
+        drive = storage.get_drive(DRIVE_ID) 
         item = drive.get_item(ONEDRIVE_FILE_ID)
         
-        print("⏬ Descarregando ficheiro...")
+        print(f"⏬ Ligado à Drive {DRIVE_ID}. Descarregando ficheiro...")
         content = item.download_contents()
         
         # --- PROCESSAMENTO ---
@@ -51,7 +49,7 @@ def run_pipeline(n_linhas=50):
             loja = df_stores.sample(1).iloc[0]
             data_str = (hoje - timedelta(days=random.randint(0, 6))).strftime('%Y-%m-%d')
             new_records.append([last_id + i, data_str, loja['Store'], prod['ProductID'], random.randint(1, 5), prod['ListPrice'], 
-                               random.choice(['Card', 'Cash', 'MBWay']), f"user_{i}@test.com", "Online"])
+                               random.choice(['Card', 'Cash', 'MBWay']), f"user_{random.randint(100,999)}@test.com", "Online"])
 
         df_final = pd.concat([df_raw, pd.DataFrame(new_records, columns=df_raw.columns)], ignore_index=True)
 
@@ -62,12 +60,12 @@ def run_pipeline(n_linhas=50):
             df_prods.to_excel(writer, sheet_name='Products', index=False)
             df_stores.to_excel(writer, sheet_name='Stores', index=False)
         
-        print("⬆️ Atualizando ficheiro...")
+        print("⬆️ Atualizando ficheiro na OneDrive...")
         item.update_contents(output.getvalue())
 
         # --- EMAIL ---
         enviar_email(len(df_final))
-        print(f"✅ Sucesso total!")
+        print(f"✅ Sucesso! Base com {len(df_final)} linhas.")
 
     except Exception as e:
         print(f"❌ Erro: {e}")
@@ -76,8 +74,8 @@ def enviar_email(total):
     msg = MIMEMultipart()
     msg['From'] = EMAIL_USER
     msg['To'] = EMAIL_USER
-    msg['Subject'] = "🚀 Pipeline concluído com sucesso"
-    msg.attach(MIMEText(f"O ficheiro foi atualizado. Total de linhas: {total}", 'plain'))
+    msg['Subject'] = "🚀 Pipeline concluído"
+    msg.attach(MIMEText(f"O ficheiro foi atualizado com sucesso. Total de linhas: {total}", 'plain'))
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASS)
