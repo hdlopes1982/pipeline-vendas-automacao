@@ -23,5 +23,33 @@ This solution eliminates manual data entry and repetitive cleaning tasks. By usi
 - `Base_Vendas.xlsx`: The project's data source.
 - `.github/workflows/main.yml`: Workflow configuration for automation.
 
+##  How to Setup
+
+To replicate this pipeline, follow these steps:
+
+### 1. Prerequisites
+- A **GitHub** account.
+- A **Gmail** account (with an [App Password](https://support.google.com/accounts/answer/185833) generated).
+- **Power BI Desktop** installed.
+
+### 2. Environment Secrets
+In your GitHub repository, go to **Settings > Secrets and variables > Actions** and add the following secrets:
+- `EMAIL_USER`: Your Gmail address.
+- `EMAIL_PASS`: Your 16-character App Password.
+
+### 3. Local Configuration
+1. Clone this repository.
+2. Install dependencies: `pip install pandas openpyxl xlsxwriter`.
+3. Run the script locally once to ensure connection: `python script_vendas.py`.
+
+### 4. Power BI Integration
+1. Open the `.pbix` file (or create a new one).
+2. Use the **Web** connector with the **Raw URL** of your `Base_Vendas.xlsx`.
+3. Set the privacy level to **Public** or **Organizational** in the Power BI Service settings to enable scheduled refresh.
+
+---
+##  License
+This project is for educational purposes. Feel free to fork and adapt it for your own automation needs!
+
 ---
 *Note: This project was developed as a technical showcase. Power BI automatic refresh is active during the Pro Trial period.*
