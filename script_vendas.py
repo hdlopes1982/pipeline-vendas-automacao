@@ -2,7 +2,7 @@ import os
 import random
 import pandas as pd
 from datetime import datetime, timedelta
-from O365 import Account
+from O365 import Account, MSGraphProtocol
 from io import BytesIO
 import smtplib
 from email.mime.text import MIMEText
@@ -18,15 +18,19 @@ EMAIL_PASS = os.getenv('EMAIL_PASS')
 
 def run_pipeline(n_linhas=50):
     try:
+        # AQUI ESTÁ O SEGREDO: Forçamos o protocolo a usar 'users' em vez de 'me'
+        # para garantir que o Azure Application Permissions (Files.ReadWrite.All) funcione
+        protocol = MSGraphProtocol(default_resource=f'users/{EMAIL_USER}')
+        
         credentials = (AZ_CLIENT_ID, AZ_CLIENT_SECRET)
-        account = Account(credentials, tenant_id=AZ_TENANT_ID, auth_flow_type='credentials')
+        account = Account(credentials, tenant_id=AZ_TENANT_ID, protocol=protocol, auth_flow_type='credentials')
         
         if not account.authenticate():
             print("❌ Falha na autenticação.")
             return
 
-        # Aceder à Drive e depois ao Item
         storage = account.storage()
+        # Acedemos à drive do utilizador específico
         drive = storage.get_default_drive()
         item = drive.get_item(ONEDRIVE_FILE_ID)
         
@@ -40,24 +44,14 @@ def run_pipeline(n_linhas=50):
 
         last_id = df_raw['TransactionID'].max() if not df_raw.empty else 1000
         hoje = datetime.now()
-        criticos, qualidade, new_records = 0, 0, []
+        new_records = []
 
         for i in range(1, n_linhas + 1):
             prod = df_prods.sample(1).iloc[0]
             loja = df_stores.sample(1).iloc[0]
             data_str = (hoje - timedelta(days=random.randint(0, 6))).strftime('%Y-%m-%d')
-            p_id, u_price = prod['ProductID'], prod['ListPrice']
-            
-            if random.random() < 0.05:
-                p_id = "P99"; u_price = None; criticos += 1
-            elif random.random() < 0.15:
-                u_price = f"€{u_price}"; qualidade += 1
-                
-            email_val = f"user_{random.randint(100,999)}@gmail.com"
-            if random.random() < 0.10: email_val = ""; qualidade += 1
-
-            new_records.append([last_id + i, data_str, loja['Store'], p_id, random.randint(1, 5), u_price, 
-                               random.choice(['Card', 'Cash', 'MBWay']), email_val, "Online"])
+            new_records.append([last_id + i, data_str, loja['Store'], prod['ProductID'], random.randint(1, 5), prod['ListPrice'], 
+                               random.choice(['Card', 'Cash', 'MBWay']), f"user_{i}@test.com", "Online"])
 
         df_final = pd.concat([df_raw, pd.DataFrame(new_records, columns=df_raw.columns)], ignore_index=True)
 
@@ -72,19 +66,18 @@ def run_pipeline(n_linhas=50):
         item.update_contents(output.getvalue())
 
         # --- EMAIL ---
-        enviar_email(n_linhas, criticos, qualidade, len(df_final))
-        print(f"✅ Sucesso! Total na base: {len(df_final)}")
+        enviar_email(len(df_final))
+        print(f"✅ Sucesso total!")
 
     except Exception as e:
         print(f"❌ Erro: {e}")
 
-def enviar_email(n, crit, qual, total):
+def enviar_email(total):
     msg = MIMEMultipart()
     msg['From'] = EMAIL_USER
     msg['To'] = EMAIL_USER
-    msg['Subject'] = "🚀 Ingestão de Dados Concluída"
-    corpo = f"Sucesso!\nNovas linhas: {n}\nTotal: {total}\nErros Críticos: {crit}\nErros Qualidade: {qual}"
-    msg.attach(MIMEText(corpo, 'plain'))
+    msg['Subject'] = "🚀 Pipeline concluído com sucesso"
+    msg.attach(MIMEText(f"O ficheiro foi atualizado. Total de linhas: {total}", 'plain'))
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASS)
