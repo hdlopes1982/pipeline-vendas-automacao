@@ -1,0 +1,40 @@
+name: Weekly Sales Ingestion
+
+# Define quando o script corre
+on:
+  schedule:
+    # Corre todas as segundas-feiras às 08:30 UTC
+    - cron: '30 8 * * 1'
+  # Permite-te clicar num botão para testar agora (Manual)
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Copia o código do teu repositório para o servidor
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Instala o Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 3. Instala as bibliotecas necessárias (Pandas, API Microsoft, etc)
+      - name: Install dependencies
+        run: |
+          pip install pandas openpyxl O365 xlsxwriter
+
+      # 4. Executa o Script ligando os segredos do GitHub às variáveis do Python
+      - name: Execute Script
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ONEDRIVE_FILE_ID: ${{ secrets.ONEDRIVE_FILE_ID }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        run: python main.py
