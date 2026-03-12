@@ -25,7 +25,10 @@ def run_pipeline(n_linhas=50):
             return
         
         # 2. DOWNLOAD
-        item = account.storage().get_default_drive().get_item(ONEDRIVE_FILE_ID)
+        storage = account.storage()
+        # Para contas pessoais, usamos get_drive e especificamos a drive
+        my_drive = storage.get_drive('me') 
+        item = my_drive.get_item(ONEDRIVE_FILE_ID)
         content = item.download_contents()
         
         # 3. PROCESSAMENTO
