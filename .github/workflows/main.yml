@@ -1,4 +1,4 @@
-name: Weekly Sales Ingestion
+name: Weekly Sales Ingestion (GitHub Internal)
 
 on:
   schedule:
@@ -8,6 +8,9 @@ on:
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    # Permissão vital para o GitHub conseguir gravar o ficheiro de volta
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code
@@ -19,16 +22,19 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          pip install pandas openpyxl O365 xlsxwriter
+        run: pip install pandas openpyxl xlsxwriter
 
       - name: Execute Script
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          ONEDRIVE_FILE_ID: ${{ secrets.ONEDRIVE_FILE_ID }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-          ONEDRIVE_DRIVE_ID: ${{ secrets.ONEDRIVE_DRIVE_ID }}
         run: python script_vendas.py
+
+      # ESTE PASSO FAZ O UPLOAD DO EXCEL ATUALIZADO PARA O TEU GITHUB
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add Base_Vendas.xlsx
+          git commit -m "Auto-update sales data [skip ci]" || echo "No changes to commit"
+          git push
