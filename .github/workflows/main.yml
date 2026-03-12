@@ -37,4 +37,4 @@ jobs:
           ONEDRIVE_FILE_ID: ${{ secrets.ONEDRIVE_FILE_ID }}
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-        run: python main.py
+        run: python script_vendas.py
