@@ -18,8 +18,8 @@ LINK_DASHBOARD = "https://app.powerbi.com/"
 
 def run_pipeline(n_linhas=50):
     try:
-        # 1. AUTENTICAÇÃO AJUSTADA PARA CONTA PESSOAL
-        # Forçamos o recurso 'me' no protocolo para evitar erro de licença SharePoint (SPO)
+        # 1. AUTENTICAÇÃO (Ajustada para o protocolo 'me')
+        # Isto resolve o erro de licença SPO em contas pessoais
         protocol = MSGraphProtocol(default_resource='me')
         account = Account(AZ_CREDENTIALS, tenant_id=AZ_TENANT_ID, protocol=protocol, auth_flow_type='credentials')
         
@@ -27,16 +27,15 @@ def run_pipeline(n_linhas=50):
             print("❌ Erro na autenticação Azure")
             return
         
-        # 2. ACESSO À ONEDRIVE
+        # 2. ACESSO À ONEDRIVE PESSOAL
         storage = account.storage()
-        # Em contas pessoais, o 'me' aponta diretamente para a tua OneDrive
-        my_drive = storage.get_default_drive()
-        item = my_drive.get_item(ONEDRIVE_FILE_ID)
+        drive = storage.get_default_drive() 
+        item = drive.get_item(ONEDRIVE_FILE_ID)
         
-        print("⏬ Descarregando ficheiro da OneDrive...")
+        print("⏬ Descarregando ficheiro...")
         content = item.download_contents()
         
-        # 3. PROCESSAMENTO DOS DADOS
+        # 3. PROCESSAMENTO
         df_raw = pd.read_excel(BytesIO(content), sheet_name='Sales_Raw')
         df_prods = pd.read_excel(BytesIO(content), sheet_name='Products')
         df_stores = pd.read_excel(BytesIO(content), sheet_name='Stores')
@@ -58,31 +57,29 @@ def run_pipeline(n_linhas=50):
                 u_price = f"€{u_price}"; qualidade += 1
                 
             email_val = f"user_{random.randint(100,999)}@gmail.com"
-            if random.random() < 0.10: 
-                email_val = ""; qualidade += 1
+            if random.random() < 0.10: email_val = ""; qualidade += 1
 
             new_records.append([last_id + i, data_str, loja['Store'], p_id, random.randint(1, 5), u_price, 
                                random.choice(['Card', 'Cash', 'MBWay']), email_val, "Online"])
 
-        df_new = pd.DataFrame(new_records, columns=df_raw.columns)
-        df_final = pd.concat([df_raw, df_new], ignore_index=True)
+        df_final = pd.concat([df_raw, pd.DataFrame(new_records, columns=df_raw.columns)], ignore_index=True)
 
-        # 4. UPLOAD (SALVAR DE VOLTA NA NUVEM)
+        # 4. UPLOAD
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_final.to_excel(writer, sheet_name='Sales_Raw', index=False)
             df_prods.to_excel(writer, sheet_name='Products', index=False)
             df_stores.to_excel(writer, sheet_name='Stores', index=False)
         
-        print("⬆️ Enviando ficheiro atualizado...")
+        print("⬆️ Atualizando ficheiro na OneDrive...")
         item.update_contents(output.getvalue())
 
-        # 5. ENVIO DE EMAIL DE SUCESSO
+        # 5. ENVIO DE EMAIL
         msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = EMAIL_USER
-        msg['Subject'] = f"🚀 GitHub Actions: Ingestão Concluída"
-        corpo = f"Sucesso!\nNovas vendas: {n_linhas}\nTotal Base: {len(df_final)}\nCríticos: {criticos}\nQualidade: {qualidade}\nLink: {LINK_DASHBOARD}"
+        msg['Subject'] = f"🚀 Ingestão Concluída: {datetime.now().strftime('%d/%m/%Y')}"
+        corpo = f"Sucesso!\nNovas linhas: {n_linhas}\nTotal Base: {len(df_final)}\nErros Críticos: {criticos}\nErros Qualidade: {qualidade}"
         msg.attach(MIMEText(corpo, 'plain'))
         
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
@@ -90,10 +87,10 @@ def run_pipeline(n_linhas=50):
             server.login(EMAIL_USER, EMAIL_PASS)
             server.send_message(msg)
             
-        print(f"✅ Sucesso total! Base com {len(df_final)} linhas.")
+        print(f"✅ Pipeline terminado com sucesso!")
 
     except Exception as e:
-        print(f"❌ Erro: {e}")
+        print(f"❌ Erro detalhado: {e}")
 
 if __name__ == "__main__":
     run_pipeline(50)
