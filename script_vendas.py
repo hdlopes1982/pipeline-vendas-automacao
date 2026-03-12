@@ -2,7 +2,7 @@ import os
 import random
 import pandas as pd
 from datetime import datetime, timedelta
-from O365 import Account
+from O365 import Account, MSGraphProtocol
 from io import BytesIO
 import smtplib
 from email.mime.text import MIMEText
@@ -18,20 +18,25 @@ LINK_DASHBOARD = "https://app.powerbi.com/"
 
 def run_pipeline(n_linhas=50):
     try:
-        # 1. AUTENTICAÇÃO
-        account = Account(AZ_CREDENTIALS, tenant_id=AZ_TENANT_ID, auth_flow_type='credentials')
+        # 1. AUTENTICAÇÃO AJUSTADA PARA CONTA PESSOAL
+        # Forçamos o recurso 'me' no protocolo para evitar erro de licença SharePoint (SPO)
+        protocol = MSGraphProtocol(default_resource='me')
+        account = Account(AZ_CREDENTIALS, tenant_id=AZ_TENANT_ID, protocol=protocol, auth_flow_type='credentials')
+        
         if not account.authenticate(): 
             print("❌ Erro na autenticação Azure")
             return
         
-        # 2. DOWNLOAD
+        # 2. ACESSO À ONEDRIVE
         storage = account.storage()
-        # Para contas pessoais, usamos get_drive e especificamos a drive
-        my_drive = storage.get_drive('me') 
+        # Em contas pessoais, o 'me' aponta diretamente para a tua OneDrive
+        my_drive = storage.get_default_drive()
         item = my_drive.get_item(ONEDRIVE_FILE_ID)
+        
+        print("⏬ Descarregando ficheiro da OneDrive...")
         content = item.download_contents()
         
-        # 3. PROCESSAMENTO
+        # 3. PROCESSAMENTO DOS DADOS
         df_raw = pd.read_excel(BytesIO(content), sheet_name='Sales_Raw')
         df_prods = pd.read_excel(BytesIO(content), sheet_name='Products')
         df_stores = pd.read_excel(BytesIO(content), sheet_name='Stores')
@@ -59,30 +64,33 @@ def run_pipeline(n_linhas=50):
             new_records.append([last_id + i, data_str, loja['Store'], p_id, random.randint(1, 5), u_price, 
                                random.choice(['Card', 'Cash', 'MBWay']), email_val, "Online"])
 
-        df_final = pd.concat([df_raw, pd.DataFrame(new_records, columns=df_raw.columns)], ignore_index=True)
+        df_new = pd.DataFrame(new_records, columns=df_raw.columns)
+        df_final = pd.concat([df_raw, df_new], ignore_index=True)
 
-        # 4. UPLOAD
+        # 4. UPLOAD (SALVAR DE VOLTA NA NUVEM)
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_final.to_excel(writer, sheet_name='Sales_Raw', index=False)
             df_prods.to_excel(writer, sheet_name='Products', index=False)
             df_stores.to_excel(writer, sheet_name='Stores', index=False)
         
+        print("⬆️ Enviando ficheiro atualizado...")
         item.update_contents(output.getvalue())
 
-        # 5. EMAIL
+        # 5. ENVIO DE EMAIL DE SUCESSO
         msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = EMAIL_USER
         msg['Subject'] = f"🚀 GitHub Actions: Ingestão Concluída"
-        msg.attach(MIMEText(f"Sucesso!\nNovas vendas: {n_linhas}\nTotal: {len(df_final)}\nCríticos: {criticos}\nQualidade: {qualidade}", 'plain'))
+        corpo = f"Sucesso!\nNovas vendas: {n_linhas}\nTotal Base: {len(df_final)}\nCríticos: {criticos}\nQualidade: {qualidade}\nLink: {LINK_DASHBOARD}"
+        msg.attach(MIMEText(corpo, 'plain'))
         
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(EMAIL_USER, EMAIL_PASS)
             server.send_message(msg)
             
-        print(f"✅ Sucesso! Total na base: {len(df_final)}")
+        print(f"✅ Sucesso total! Base com {len(df_final)} linhas.")
 
     except Exception as e:
         print(f"❌ Erro: {e}")
