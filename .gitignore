@@ -1,0 +1,20 @@
+# Python bytecode (ficheiros temporários que o Python cria ao correr)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ficheiros de ambiente virtual (se usares um dia)
+venv/
+env/
+
+# Ficheiros de sistema (Windows/Mac)
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Ficheiros temporários do Excel (aqueles que aparecem quando abres o ficheiro)
+~$*
+
+# Power BI temporary files
+*.pbit
+*.pbix.settings

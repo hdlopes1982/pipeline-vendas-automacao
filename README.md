@@ -20,6 +20,11 @@ This project was developed with the assistance of **Generative AI** as a "pair p
 - Optimizing Python logic for data generation.
 - Drafting professional HTML templates for automated reporting.
 
+## Dashboard Preview
+![Main Dashboard](images/dashboard_main.png)
+![Data Quality Monitoring](images/data_quality.png)
+![Automated Email Report](images/email_alert.png)
+
 ##  Tech Stack
 - **Python** (Pandas, XlsxWriter)
 - **GitHub Actions** (CI/CD / Orchestration)
