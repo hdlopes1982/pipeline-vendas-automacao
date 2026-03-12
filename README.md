@@ -1,55 +1,35 @@
-# Automated Data Pipeline: Python | GitHub Actions | Power BI
+# Data Pipeline Workaround: Solving Automation without Premium Licenses
 
-This project demonstrates a fully automated end-to-end data ecosystem, from synthetic data generation to real-time Business Intelligence visualization.
+This project is a technical demonstration of how to overcome typical licensing and infrastructure barriers in Data Analytics. The goal was to create a self-updating Power BI dashboard without access to paid database services, dedicated gateways, or Microsoft Fabric licenses.
+
+## The Challenge
+In many professional scenarios, we lack the "perfect" tech stack. The challenge here was to maintain a Power BI Service dashboard updated automatically, using only free-tier tools and strategic integrations.
+
+##  The Solution (The Workaround)
+Since I couldn't use a standard SQL Server + Gateway setup, I "connected the dots" using an alternative pipeline:
+
+- **Storage:** Used a **GitHub Repository** as a lightweight, version-controlled data store for Excel files.
+- **Data Ingestion:** Developed a **Python** script to simulate and inject weekly sales data, ensuring referential integrity.
+- **Orchestration:** Leveraged **GitHub Actions** as a free cloud orchestrator to run the script and update the repository weekly.
+- **Connectivity:** Bypassed Microsoft's authentication hurdles by connecting Power BI to the GitHub API via Web Tokens and Raw URL mapping.
+- **Monitoring:** Integrated an **SMTP/Gmail** alert system to provide status reports on each ingestion.
+
+## GenAI Collaboration
+This project was developed with the assistance of **Generative AI** as a "pair programmer." GenAI was fundamental in:
+- Debugging complex API authentication errors (404/429 errors).
+- Optimizing Python logic for data generation.
+- Drafting professional HTML templates for automated reporting.
 
 ##  Tech Stack
-- **Language:** Python (Pandas, Openpyxl, XlsxWriter)
-- **Automation:** GitHub Actions (CI/CD)
-- **Storage:** GitHub Repository (as a flat-file database)
-- **Communication:** SMTP / Gmail API (HTML Reports)
-- **Visualization:** Power BI (Web/API Integration)
-
-##  How it Works
-1.  **Data Generation:** A Python script runs weekly to simulate realistic sales transactions, maintaining referential integrity between Product and Store tables.
-2.  **Orchestration:** GitHub Actions triggers the environment every Monday at 08:30 AM. It executes the script, updates the `Base_Vendas.xlsx` file, and performs a Git commit/push back to the repository.
-3.  **Smart Alerting:** Upon success, the system sends a professional HTML-formatted email report with key ingestion metrics.
-4.  **BI Integration:** Power BI Service connects to the GitHub Raw URL via a secure API connection, enabling scheduled refreshes and automated dashboard updates.
-
-##  Business Value
-This solution eliminates manual data entry and repetitive cleaning tasks. By using GitHub as a lightweight data versioning tool, the dashboard remains updated without any human intervention, ensuring data-driven decisions are made on the most recent information.
-
-##  Project Structure
-- `script_vendas.py`: Main logic for data generation and email reporting.
-- `Base_Vendas.xlsx`: The project's data source.
-- `.github/workflows/main.yml`: Workflow configuration for automation.
+- **Python** (Pandas, XlsxWriter)
+- **GitHub Actions** (CI/CD / Orchestration)
+- **Power BI** (Web Connectivity & DAX)
+- **Gmail API** (Monitoring)
 
 ##  How to Setup
-
-To replicate this pipeline, follow these steps:
-
-### 1. Prerequisites
-- A **GitHub** account.
-- A **Gmail** account (with an [App Password](https://support.google.com/accounts/answer/185833) generated).
-- **Power BI Desktop** installed.
-
-### 2. Environment Secrets
-In your GitHub repository, go to **Settings > Secrets and variables > Actions** and add the following secrets:
-- `EMAIL_USER`: Your Gmail address.
-- `EMAIL_PASS`: Your 16-character App Password.
-
-### 3. Local Configuration
-1. Clone this repository.
-2. Install dependencies: `pip install pandas openpyxl xlsxwriter`.
-3. Run the script locally once to ensure connection: `python script_vendas.py`.
-
-### 4. Power BI Integration
-1. Open the `.pbix` file (or create a new one).
-2. Use the **Web** connector with the **Raw URL** of your `Base_Vendas.xlsx`.
-3. Set the privacy level to **Public** or **Organizational** in the Power BI Service settings to enable scheduled refresh.
+1. **GitHub Secrets:** Add `EMAIL_USER` and `EMAIL_PASS` to your repository secrets.
+2. **Power BI:** Use the Raw URL from GitHub and set the Authentication to **Anonymous** (Privacy Level: Public) in Power BI Service.
+3. **Actions:** The workflow is set to run every Monday, but can be triggered manually in the "Actions" tab.
 
 ---
-##  License
-This project is for educational purposes. Feel free to fork and adapt it for your own automation needs!
-
----
-*Note: This project was developed as a technical showcase. Power BI automatic refresh is active during the Pro Trial period.*
+*Note: This repository serves as a proof of concept for technical problem-solving and resource optimization.*
